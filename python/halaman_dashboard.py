@@ -149,6 +149,7 @@ class HalamanDashboard(tk.Frame):
         try:
             resp = requests.get(
                 f"{SERVER}/presensi.php?action=dashboard",
+                headers=get_headers(),
                 timeout=8
             )
             data = resp.json()

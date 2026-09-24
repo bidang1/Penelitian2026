@@ -170,6 +170,7 @@ class HalamanPresensi(tk.Frame):
         def fetch():
             try:
                 resp = requests.get(f"{SERVER}/acara.php?action=list",
+                                    headers=get_headers(),
                                     timeout=8)
                 data = resp.json().get("data", [])
                 self.after(0, lambda: self._populate_combo(data))
@@ -215,12 +216,14 @@ class HalamanPresensi(tk.Frame):
             try:
                 resp = requests.get(
                     f"{SERVER}/presensi.php?action=list&acara_id={acara_id}",
+                    headers=get_headers(),
                     timeout=8
                 )
                 data = resp.json().get("data", [])
 
                 # Ambil semua mahasiswa untuk tampilkan tidak hadir
                 resp_mhs = requests.get(f"{SERVER}/mahasiswa.php?action=list",
+                                        headers=get_headers(),
                                         timeout=8)
                 semua_mhs = resp_mhs.json().get("data", [])
 
@@ -272,6 +275,7 @@ class HalamanPresensi(tk.Frame):
             try:
                 resp = requests.get(
                     f"{SERVER}/presensi.php?action=statistik&acara_id={acara_id}",
+                    headers=get_headers(),
                     timeout=8
                 )
                 data = resp.json()

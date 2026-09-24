@@ -15,7 +15,7 @@ try:
 except ImportError:
     OPENPYXL_OK = False
 
-from config import SERVER, EXPORT_FOLDER
+from config import SERVER, EXPORT_FOLDER, get_headers
 
 
 def _safe_filename(nama: str) -> str:
@@ -36,7 +36,7 @@ def export_presensi(acara_id: int, nama_acara: str, tanggal: str) -> str:
 
     # ── 1. Ambil data presensi dari server ─────────────────────
     url  = f"{SERVER}/presensi.php?action=list&acara_id={acara_id}"
-    resp = requests.get(url, timeout=10)
+    resp = requests.get(url, headers=get_headers(), timeout=10)
     resp.raise_for_status()
     payload = resp.json()
 
@@ -47,12 +47,12 @@ def export_presensi(acara_id: int, nama_acara: str, tanggal: str) -> str:
 
     # ── 2. Ambil statistik ─────────────────────────────────────
     url_stat = f"{SERVER}/presensi.php?action=statistik&acara_id={acara_id}"
-    resp_stat = requests.get(url_stat, timeout=10)
+    resp_stat = requests.get(url_stat, headers=get_headers(), timeout=10)
     stat = resp_stat.json() if resp_stat.ok else {}
 
     # ── 3. Ambil semua mahasiswa (untuk tidak hadir) ───────────
     url_mhs  = f"{SERVER}/mahasiswa.php?action=list"
-    resp_mhs = requests.get(url_mhs, timeout=10)
+    resp_mhs = requests.get(url_mhs, headers=get_headers(), timeout=10)
     semua_mhs = resp_mhs.json().get("data", []) if resp_mhs.ok else []
 
     # Buat set mahasiswa yang hadir

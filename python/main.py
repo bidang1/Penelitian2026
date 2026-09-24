@@ -141,7 +141,7 @@ class App(tk.Tk):
 
         def check():
             try:
-                resp = requests.get(f"{SERVER}/status.php", timeout=4)
+                resp = requests.get(f"{SERVER}/status.php", headers=get_headers(), timeout=4)
                 if resp.status_code == 200:
                     self.after(0, lambda: self.lbl_status.config(
                         text="🟢 Server Terhubung", fg=SUCCESS

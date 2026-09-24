@@ -182,7 +182,7 @@ class HalamanMahasiswa(tk.Frame):
                 if s:
                     params["search"] = s
                 resp = requests.get(f"{SERVER}/mahasiswa.php",
-                                    params=params, timeout=8)
+                                    params=params, headers=get_headers(), timeout=8)
                 data = resp.json().get("data", [])
                 self.after(0, lambda: self._populate_table(data))
             except Exception as e:
@@ -232,7 +232,7 @@ class HalamanMahasiswa(tk.Frame):
             self.lbl_scan_status.config(text="⏳ Menunggu tap kartu...", fg=WARNING)
             # Clear UID lama
             try:
-                requests.get(f"{SERVER}/mahasiswa.php?action=clear_uid", timeout=4)
+                requests.get(f"{SERVER}/mahasiswa.php?action=clear_uid", headers=get_headers(), timeout=4)
             except Exception:
                 pass
             self._do_scan()
@@ -248,6 +248,7 @@ class HalamanMahasiswa(tk.Frame):
             try:
                 resp = requests.get(
                     f"{SERVER}/mahasiswa.php?action=scan_uid",
+                    headers=get_headers(),
                     timeout=4
                 )
                 uid = resp.json().get("uid", "").strip()
@@ -270,7 +271,7 @@ class HalamanMahasiswa(tk.Frame):
         )
         # Clear UID di server
         try:
-            requests.get(f"{SERVER}/mahasiswa.php?action=clear_uid", timeout=4)
+            requests.get(f"{SERVER}/mahasiswa.php?action=clear_uid", headers=get_headers(), timeout=4)
         except Exception:
             pass
 
@@ -297,7 +298,7 @@ class HalamanMahasiswa(tk.Frame):
         def post():
             try:
                 resp = requests.post(f"{SERVER}/mahasiswa.php",
-                                     data=data, timeout=8)
+                                     data=data, headers=get_headers(), timeout=8)
                 r = resp.json()
                 if r.get("status") == "ok":
                     self.after(0, lambda: self._on_success("Mahasiswa berhasil ditambahkan!"))
@@ -318,7 +319,7 @@ class HalamanMahasiswa(tk.Frame):
         def post():
             try:
                 resp = requests.post(f"{SERVER}/mahasiswa.php",
-                                     data=data, timeout=8)
+                                     data=data, headers=get_headers(), timeout=8)
                 r = resp.json()
                 if r.get("status") == "ok":
                     self.after(0, lambda: self._on_success("Data berhasil diubah!"))
@@ -344,6 +345,7 @@ class HalamanMahasiswa(tk.Frame):
                 resp = requests.post(f"{SERVER}/mahasiswa.php",
                                      data={"action": "hapus",
                                            "id": self._selected_id},
+                                     headers=get_headers(),
                                      timeout=8)
                 r = resp.json()
                 if r.get("status") == "ok":

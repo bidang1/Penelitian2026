@@ -4,6 +4,15 @@ TITLE   = "Sistem Presensi Mahasiswa RFID"
 SERVER  = "http://localhost/PRESENSI/php"   # Ganti IP/folder sesuai server Anda
 API_KEY = ""                                # Samakan dengan DEVICE_API_KEY di .env jika aktif
 
+def get_headers():
+    headers = {
+        "User-Agent": "Python-PresensiDesktop/2.0"
+    }
+    if API_KEY:
+        headers["X-Device-Key"] = API_KEY
+        headers["X-API-Key"] = API_KEY
+    return headers
+
 WIDTH  = 1280
 HEIGHT = 760
 

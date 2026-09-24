@@ -204,7 +204,7 @@ class HalamanAcara(tk.Frame):
                 if f:
                     params["filter"] = f
                 resp = requests.get(f"{SERVER}/acara.php",
-                                    params=params, timeout=8)
+                                    params=params, headers=get_headers(), timeout=8)
                 data = resp.json().get("data", [])
                 self.after(0, lambda: self._populate(data))
             except Exception as e:
@@ -287,7 +287,7 @@ class HalamanAcara(tk.Frame):
         def post():
             try:
                 resp = requests.post(f"{SERVER}/acara.php",
-                                     data=data, timeout=8)
+                                     data=data, headers=get_headers(), timeout=8)
                 r = resp.json()
                 if r.get("status") == "ok":
                     self.after(0, lambda: self._on_success("Acara berhasil ditambahkan!"))
@@ -308,7 +308,7 @@ class HalamanAcara(tk.Frame):
         def post():
             try:
                 resp = requests.post(f"{SERVER}/acara.php",
-                                     data=data, timeout=8)
+                                     data=data, headers=get_headers(), timeout=8)
                 r = resp.json()
                 if r.get("status") == "ok":
                     self.after(0, lambda: self._on_success("Acara berhasil diubah!"))
@@ -332,6 +332,7 @@ class HalamanAcara(tk.Frame):
                 resp = requests.post(f"{SERVER}/acara.php",
                                      data={"action": "aktifkan",
                                            "id": self._selected_id},
+                                     headers=get_headers(),
                                      timeout=8)
                 r = resp.json()
                 if r.get("status") == "ok":
@@ -352,6 +353,7 @@ class HalamanAcara(tk.Frame):
                 resp = requests.post(f"{SERVER}/acara.php",
                                      data={"action": "selesaikan",
                                            "id": self._selected_id},
+                                     headers=get_headers(),
                                      timeout=8)
                 r = resp.json()
                 if r.get("status") == "ok":
@@ -377,6 +379,7 @@ class HalamanAcara(tk.Frame):
                 resp = requests.post(f"{SERVER}/acara.php",
                                      data={"action": "hapus",
                                            "id": self._selected_id},
+                                     headers=get_headers(),
                                      timeout=8)
                 r = resp.json()
                 if r.get("status") == "ok":

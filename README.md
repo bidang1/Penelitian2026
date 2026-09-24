@@ -1,81 +1,113 @@
-# Sistem Presensi Mahasiswa Berbasis RFID (Presensi HIMA)
+# Sistem Presensi Mahasiswa Berbasis RFID (Presensi HIMATIF) - Laravel Edition
 
-Sistem Presensi Mahasiswa terintegrasi berbasis kartu RFID / NFC dengan antarmuka Web Neo-Brutalist (*Wireframe-Inspired*), Cloud Database (Firebase Realtime Database), Server Lokal (PHP/MySQL), Aplikasi Desktop GUI (Python/Tkinter), serta Hardware IoT (ESP8266 NodeMCU + PN532 / RC522).
+Sistem Presensi Mahasiswa terintegrasi berbasis kartu RFID / NFC dengan antarmuka Web Neo-Brutalist (*Wireframe-Inspired*), Cloud Database (Firebase Realtime Database), Backend Framework Laravel (PHP 8.4 + Eloquent ORM + Blade Views), Aplikasi Desktop GUI (Python Tkinter), serta integrasi Hardware IoT (ESP8266 NodeMCU + PN532 / RC522).
 
 ---
 
 ## Fitur Utama
 
-- **Web Dashboard (Neo-Brutalist / Real-time Sync)**:
-  - Tampilan *Clean Wireframe* monokrom elegan berorientasi keterbacaan tinggi.
+- **Web Dashboard (Laravel + Neo-Brutalist + Real-time Sync)**:
+  - Tampilan *Clean Wireframe* monokrom elegan berorientasi keterbacaan tinggi (Neo-Brutalist design system).
+  - Autentikasi sesi Administrator aman dengan proteksi brute force rate-limiting.
   - Sinkronisasi instan *sub-detik* dengan Firebase Realtime Database saat kartu di-tap.
-  - Live Feed pemantauan tap kartu secara langsung.
-  - Manajemen data Mahasiswa (Tambah, Edit, Hapus).
+  - Live Tap Feed pemantauan absensi secara langsung.
+  - Manajemen Master Data Mahasiswa (Tambah, Edit, Hapus, Filter Divisi/Bidang, dan Batch CSV Import).
+  - Manajemen Program Kerja / Acara HIMA (hanya 1 proker aktif bersamaan, auto-deactivate proker lain).
   - Pendaftaran otomatis kartu belum terdaftar (*Unknown Cards*).
-  - Rekapitulasi & Export data presensi ke format Excel (.xlsx).
+  - Rekapitulasi & Export data presensi ke format CSV dengan sanitasi formula injection.
   - Indikator status perangkat IoT (Online / Offline).
 
-- **Hardware & IoT (ESP8266 + NFC PN532 / RC522)**:
-  - Kompatibel dengan NFC PN532 (SPI) dan RFID RC522.
-  - Dua mode operasi:
-    1. **Mode Firebase Cloud** (`arduino/presensi_firebase`): Kirim data langsung ke internet tanpa butuh laptop/localhost aktif.
-    2. **Mode Localhost HTTP** (`arduino/presensi_esp8266` & `arduino/presensi_rfid`): Kirim via HTTP REST ke Laragon/XAMPP.
-  - Modulasi nada buzzer interaktif (berhasil, kartu baru, error).
-  - Tampilan LCD 16x2 I2C dengan pesan sambutan nama mahasiswa.
+- **Hardware & IoT Compatibility (ESP8266 REST Mode)**:
+  - Endpoint REST API `/api/check_uid` (kompatibel penuh dengan firmware ESP8266 lama).
+  - Endpoint telemetry `/api/esp_status` untuk heartbeat status perangkat.
+  - Cooldown tap kartu 2 detik untuk mencegah duplicate tap ganda.
+  - Pengecekan otomatis target audience kepanitiaan dan deteksi keterlambatan.
 
 - **Desktop Application (Python Tkinter)**:
-  - Antarmuka GUI interaktif dengan Tkinter.
-  - Dashboard statistik kehadiran & status perangkat.
-  - Export laporan presensi ke Excel.
+  - Antarmuka GUI desktop untuk monitoring dan rekapitulasi mandiri.
+  - Terletak pada direktori `python/`.
 
 ---
 
 ## Struktur Direktori
 
 ```text
-├── .htaccess               # Konfigurasi Apache/LiteSpeed untuk produksi (Hostinger)
-├── .env.example            # Template konfigurasi environment / database
-├── api/                    # REST API backend PHP (attendance, students, check_uid, dll.)
-├── assets/                 # Frontend assets
-│   ├── style.css           # Neo-Brutalism wireframe design system
-│   ├── app.js              # Frontend dashboard logic
-│   ├── firebase-config.js  # Konfigurasi Firebase Web SDK
-│   └── firebase-service.js # Listener Realtime Database cloud
-├── exports/                # Direktori output file export Excel
-├── php/                    # Modul backend PHP
-├── python/                 # Source code aplikasi desktop GUI Python
-├── sql/                    # Skema database MySQL (presensi.sql & hostinger_import.sql)
-├── config.php              # Konfigurasi database MySQL & server
-├── index.php               # Entry point antarmuka Web Dashboard
-├── login.php               # Autentikasi administrator
-├── logout.php              # Script logout
-└── README.md
+├── app/
+│   ├── Http/Controllers/    # Controller REST API, Auth, Dashboard, Student, Event, Export, IoT
+│   └── Models/              # Eloquent Models (Admin, Student, Event, Attendance, UnknownCard, dll.)
+├── bootstrap/               # Bootstrap loader & exception / middleware config
+├── config/                  # Konfigurasi aplikasi Laravel
+├── database/
+│   ├── factories/           # Factory seeder
+│   ├── migrations/          # Migrasi skema database terstruktur
+│   └── seeders/             # Database Seeder
+├── public/
+│   ├── assets/              # Desain Neo-Brutalist CSS, JS frontend, dan Firebase SDK
+│   └── index.php            # Entry point web server
+├── python/                  # Aplikasi desktop GUI Python (Tkinter)
+├── resources/
+│   └── views/               # Blade Templates (Layout Neo-Brutalist, Auth, Dashboard)
+├── routes/
+│   ├── api.php              # Rute hardware IoT
+│   └── web.php              # Rute dashboard dan CRUD API terproteksi sesi
+├── sql/                     # Skema SQL legacy dan import Hostinger
+├── storage/                 # Cache, logs, dan sessions
+├── tests/                   # Automated Feature & Unit Test Suite (PHPUnit)
+├── .env.example             # Template konfigurasi environment
+├── artisan                  # Artisan CLI runner
+└── composer.json            # Manajemen dependensi PHP
 ```
 
 ---
 
-## Panduan Penggunaan
+## Panduan Instalasi & Menjalankan
 
-### 1. Web Dashboard
-1. Jalankan web server lokal (Laragon / XAMPP / PHP CLI):
-   ```bash
-   php -S 127.0.0.1:8099 -t .
-   ```
-2. Buka browser pada alamat `http://localhost:8099/index.php`.
-3. Web dashboard akan langsung terhubung ke Firebase Cloud secara otomatis.
+### 1. Kebutuhan Sistem
+- PHP >= 8.3 (direkomendasikan PHP 8.4)
+- Composer
+- Database MySQL / MariaDB
 
-### 2. Firmware ESP8266 (Mode Firebase Cloud)
-1. Buka Arduino IDE.
-2. Install library yang dibutuhkan melalui *Library Manager*:
-   - `Firebase Arduino Client Library for ESP8266 and ESP32` (by Mobizt)
-   - `Adafruit PN532` (by Adafruit)
-   - `LiquidCrystal I2C` (by Frank de Brabander)
-3. Buka file `arduino/presensi_firebase/presensi_firebase.ino`.
-4. Sesuaikan `WIFI_SSID` dan `WIFI_PASSWORD` dengan hotspot/Wi-Fi Anda.
-5. Upload ke board `NodeMCU 1.0 (ESP-12E Module)`.
+### 2. Instalasi Dependensi
+```bash
+composer install
+```
 
-### 3. Database MySQL (Opsional jika ingin backup lokal)
-1. Buka phpMyAdmin / Laragon.
-2. Buat database baru bernama `presensi`.
-3. Import file `sql/presensi.sql`.
-4. Sesuaikan kredensial di `config.php` jika diperlukan.
+### 3. Konfigurasi Environment
+Salin template environment:
+```bash
+cp .env.example .env
+php artisan key:generate
+```
+Sesuaikan konfigurasi database pada `.env`:
+```ini
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=presensi
+DB_USERNAME=root
+DB_PASSWORD=
+```
+
+### 4. Migrasi Database
+Jalankan migrasi tabel:
+```bash
+php artisan migrate
+```
+
+### 5. Menjalankan Server Lokal
+```bash
+php artisan serve
+```
+Akses dashboard melalui browser: `http://localhost:8000`.
+
+---
+
+## Pengujian Otomatis (PHPUnit)
+
+Jalankan pengujian untuk memverifikasi seluruh fungsionalitas:
+```bash
+php vendor/bin/phpunit
+# atau
+php artisan test
+```
+Semua test mencakup pengujian autentikasi, aktivasi acara, API mahasiswa, dan kompatibilitas endpoint IoT ESP8266.
