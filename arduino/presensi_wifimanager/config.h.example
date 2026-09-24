@@ -1,0 +1,19 @@
+/*
+ * ============================================================
+ * KONFIGURASI FIREBASE & JARINGAN - TEMPLATE
+ * ============================================================
+ * Copy file ini menjadi config.h dan isi kredensial Firebase.
+ * ============================================================
+ */
+
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#define FIREBASE_API_KEY      "YOUR_FIREBASE_API_KEY_HERE"
+#define FIREBASE_DATABASE_URL "YOUR_FIREBASE_DATABASE_URL_HERE"
+
+// Konfigurasi Nama Hotspot AP untuk Setup WiFi via HP
+#define AP_SSID               "HIMATIF-Presensi"
+#define AP_PASS               "himatif123"
+
+#endif
