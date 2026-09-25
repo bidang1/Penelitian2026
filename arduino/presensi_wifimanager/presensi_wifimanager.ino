@@ -103,11 +103,16 @@ const long CACHE_INTERVAL      = 4000; // 4 detik
 unsigned long lastHeartbeat    = 0;
 const long HEARTBEAT_INTERVAL  = 20000; // 20 detik
 
-// ASYNC LOG
+// ASYNC LOG & UNKNOWN CARD
 bool hasPendingLog             = false;
 unsigned long pendingLogTime   = 0;
 const long PENDING_LOG_TIMEOUT = 10000; // 10 detik max sebelum discard
 FirebaseJson pendingLogData;
+
+bool hasPendingUnknownCard        = false;
+char pendingUnknownUID[33]        = "";
+unsigned long pendingUnknownTime  = 0;
+FirebaseJson pendingUnknownData;
 
 // STATE MACHINE LCD (NON-BLOCKING & ANTI-FLICKER)
 unsigned long lcdResetTime     = 0;
@@ -508,18 +513,18 @@ void sendHeartbeat() {
 // BACA UID KARTU PN532
 // ============================================================
 String bacaKartu() {
-  uint8_t uid[10];
+  static uint8_t uid[16];
   uint8_t panjangUID = 0;
 
   if (!nfc.readPassiveTargetID(PN532_MIFARE_ISO14443A, uid, &panjangUID, 150)) {
     return ""; 
   }
 
-  if (panjangUID == 0 || panjangUID > 10) {
+  if (panjangUID == 0 || panjangUID > sizeof(uid)) {
     return "";
   }
 
-  char uidStr[21]; // max 10 bytes × 2 hex chars + null
+  char uidStr[33]; // max 16 bytes × 2 hex chars + null
   int pos = 0;
   for (uint8_t i = 0; i < panjangUID; i++) {
     pos += snprintf(uidStr + pos, sizeof(uidStr) - pos, "%02X", uid[i]);
@@ -528,40 +533,42 @@ String bacaKartu() {
 }
 
 // ============================================================
-// HANDLE KARTU BELUM TERDAFTAR
+// HANDLE KARTU BELUM TERDAFTAR (Pendaftaran Baru / e-KTP)
 // ============================================================
 void handleUnknownCard(const String& uid) {
   Serial.print(F("[NEW] Kartu baru terdeteksi. UID: "));
   Serial.println(uid);
-  buzzUnknown();
 
   char centered[17];
   String uidDisplay = "UID: " + uid;
   centerTextBuf(centered, uidDisplay.c_str());
   lcdPrint("BELUM TERDAFTAR!", centered);
 
-  // Tulis data langsung tanpa read dulu — updateNode merge, tidak menimpa first_seen
-  String path = "/unknown_cards/" + uid;
+  buzzUnknown();
+
+  // Simpan data kartu baru untuk dikirim asinkron di loop() — mencegah Soft WDT crash
+  safeCopy(pendingUnknownUID, uid.c_str(), sizeof(pendingUnknownUID));
 
   time_t now = time(nullptr);
   struct tm* ptm = localtime(&now);
   bool ntpReady = (ptm && ptm->tm_year > 100);
 
-  FirebaseJson json;
-  json.set("uid", uid);
+  pendingUnknownData.clear();
+  pendingUnknownData.set("uid", pendingUnknownUID);
 
   if (ntpReady) {
     char timeStr[24];
     snprintf(timeStr, sizeof(timeStr), "%04d-%02d-%02dT%02d:%02d:%02d",
              ptm->tm_year + 1900, ptm->tm_mon + 1, ptm->tm_mday,
              ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
-    json.set("last_seen", timeStr);
-    json.set("timestamp", (double)now * 1000);
+    pendingUnknownData.set("last_seen", timeStr);
+    pendingUnknownData.set("timestamp", (double)now * 1000);
   } else {
-    json.set("last_seen/.sv", "timestamp");
+    pendingUnknownData.set("last_seen/.sv", "timestamp");
   }
 
-  Firebase.RTDB.updateNode(&fbdo, path.c_str(), &json);
+  hasPendingUnknownCard = true;
+  pendingUnknownTime    = millis();
 
   // NON-BLOCKING LCD STATE
   strncpy(pendingLcdLine1, "KARTU BARU/ASING", 16); pendingLcdLine1[16] = '\0';
@@ -631,6 +638,9 @@ void prosesTapKartu(const String& uid) {
 
   // Jika kartu belum terdaftar, tangani sebagai unknown card
   if (!userFound) {
+    fbdo.clear();
+    yield();
+    ESP.wdtFeed();
     handleUnknownCard(uid);
     return;
   }
@@ -993,6 +1003,10 @@ void setup() {
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
 
+  // Set buffer SSL BearSSL agar stabil & tidak out of memory
+  fbdo.setBSSLBufferSize(4096, 1024);
+  fbdo.setResponseSize(1024);
+
   // Ambil data cache pertama kali
   refreshCache();
 
@@ -1007,6 +1021,8 @@ void setup() {
 // LOOP
 // ============================================================
 void loop() {
+  ESP.wdtFeed();
+
   // Reset buzzer hanya sekali setelah terakhir aktif
   if (buzzerNeedsReset) {
     digitalWrite(BUZZER_PIN, LOW);
@@ -1033,7 +1049,8 @@ void loop() {
   }
 
   // Kirim heartbeat telemetry ke Firebase (setiap 20 detik)
-  if ((unsigned long)(sekarang - lastHeartbeat) > HEARTBEAT_INTERVAL) {
+  // Jangan kirim jika sedang ada antrean log/kartu baru agar koneksi SSL tidak bertabrakan
+  if (!hasPendingLog && !hasPendingUnknownCard && (unsigned long)(sekarang - lastHeartbeat) > HEARTBEAT_INTERVAL) {
     sendHeartbeat();
   }
 
@@ -1050,9 +1067,41 @@ void loop() {
       hasPendingLog = false;
       Serial.println(F("[LOG] Timeout — pending log di-discard"));
     } else if (WiFi.status() == WL_CONNECTED && Firebase.ready()) {
-      Firebase.RTDB.pushJSON(&fbdo, "/log_presensi", &pendingLogData);
+      fbdo.clear();
+      delay(50);
+      yield();
+      ESP.wdtFeed();
+      if (Firebase.RTDB.pushJSON(&fbdo, "/log_presensi", &pendingLogData)) {
+        Serial.println(F("[LOG] Log presensi berhasil dikirim (Async)"));
+      } else {
+        Serial.print(F("[LOG] Gagal kirim log: "));
+        Serial.println(fbdo.errorReason());
+      }
       hasPendingLog = false;
-      Serial.println(F("[LOG] Log presensi berhasil dikirim (Async)"));
+    }
+  }
+
+  // Proses pending unknown card secara asinkron (dengan timeout 10 detik)
+  if (hasPendingUnknownCard) {
+    if ((unsigned long)(sekarang - pendingUnknownTime) > PENDING_LOG_TIMEOUT) {
+      hasPendingUnknownCard = false;
+      Serial.println(F("[UNKNOWN] Timeout — unknown card di-discard"));
+    } else if (WiFi.status() == WL_CONNECTED && Firebase.ready()) {
+      char path[64];
+      snprintf(path, sizeof(path), "/unknown_cards/%s", pendingUnknownUID);
+      fbdo.clear();
+      delay(50);
+      yield();
+      ESP.wdtFeed();
+      Serial.print(F("[Firebase] Mencatat unknown card ke cloud: "));
+      Serial.println(pendingUnknownUID);
+      if (Firebase.RTDB.setJSON(&fbdo, path, &pendingUnknownData)) {
+        Serial.println(F("[Firebase] Unknown card berhasil dicatat di cloud (Async)!"));
+      } else {
+        Serial.print(F("[Firebase] Gagal simpan unknown card: "));
+        Serial.println(fbdo.errorReason());
+      }
+      hasPendingUnknownCard = false;
     }
   }
 
